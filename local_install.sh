@@ -30,4 +30,13 @@ sudo pacman -S \
   embree \ 
   lib32-glm
 
-
+#dev deps
+black[jupyter]==22.3.0
+isort==5.10.1
+pylint==2.13.4
+pytest==7.1.2
+pytest-xdist==2.5.0
+typeguard>=2.13.3
+pyyaml
+build
+twine
