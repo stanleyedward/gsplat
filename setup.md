@@ -14,4 +14,11 @@
 search it up online its aroudn 11gbs
 
 
+#### Run this script to verify on a colmap data
+```
+CUDA_VISIBLE_DEVICES=0 python simple_trainer.py default \
+    --data_dir data/360_v2/garden/ --data_factor 4 \
+    --result_dir ./results/garden
+```
+
 
