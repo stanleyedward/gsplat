@@ -7,6 +7,10 @@ conda install pytorch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1  pytorch-cuda
 pip install ninja numpy jaxtyping rich wheel packaging
 pip install gsplat --index-url https://docs.gsplat.studio/whl/pt24cu118
 
+# if you run into CUDA mismatch errors try these
+unset LD_LIBRARY_PATH #check if its pointing to the wrong /bin/
+unset CUDA_HOME #same for this
+pip install --no-build-isolation -e .
 # Set CUDA_HOME to your conda environment
 export CUDA_HOME=$CONDA_PREFIX
 # Update LD_LIBRARY_PATH with the specific CUDA lib paths
