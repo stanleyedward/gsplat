@@ -1,0 +1,2 @@
+python examples/simple_trainer.py mcmc --data-dir ../storage/data/360_v2/garden/ --data_factor 4 --disable_viewer --strategy.cap-max 1000000 --max-steps 8000 --result_dir results/garden_MCMC_1M_profiled_8k
+
