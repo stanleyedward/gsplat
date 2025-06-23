@@ -41,7 +41,7 @@ from gsplat.strategy import DefaultStrategy, MCMCStrategy
 from gsplat_viewer import GsplatViewer, GsplatRenderTabState
 from nerfview import CameraState, RenderTabState, apply_float_colormap
 
-PROFILE_ITERATION = 5000
+PROFILE_ITERATION = 7500
 
 @dataclass
 class Config:
@@ -604,7 +604,7 @@ class Runner:
         pbar = tqdm.tqdm(range(init_step, max_steps))
         for step in pbar:
             if step == PROFILE_ITERATION:
-                cudart.cudaProfilerStart()
+                torch.cuda.cudart().cudaProfilerStart()
                 print(f"\n[INFO] ---- Starting Nsight profiling at iteration {step} ----")
             if not cfg.disable_viewer:
                 while self.viewer.state == "paused":
@@ -901,7 +901,7 @@ class Runner:
                     assert_never(self.cfg.strategy)
 
             if step == PROFILE_ITERATION:
-                cudart.cudaProfilerStop()
+                torch.cuda.cudart().cudaProfilerStop()
                 print(f"\n[INFO]--- Stopiing nsight profiling for iteration {step}")
                 print(f"[INFO] report saved ")
             # eval the full set
