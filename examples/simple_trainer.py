@@ -42,6 +42,7 @@ from gsplat_viewer import GsplatViewer, GsplatRenderTabState
 from nerfview import CameraState, RenderTabState, apply_float_colormap
 
 PROFILE_ITERATION = 7500
+PROFILE_ITERATION_STOP = 7600
 
 @dataclass
 class Config:
@@ -517,30 +518,32 @@ class Runner:
             rasterize_mode = "antialiased" if self.cfg.antialiased else "classic"
         if camera_model is None:
             camera_model = self.cfg.camera_model
-        render_colors, render_alphas, info = rasterization(
-            means=means,
-            quats=quats,
-            scales=scales,
-            opacities=opacities,
-            colors=colors,
-            viewmats=torch.linalg.inv(camtoworlds),  # [C, 4, 4]
-            Ks=Ks,  # [C, 3, 3]
-            width=width,
-            height=height,
-            packed=self.cfg.packed,
-            absgrad=(
-                self.cfg.strategy.absgrad
-                if isinstance(self.cfg.strategy, DefaultStrategy)
-                else False
-            ),
-            sparse_grad=self.cfg.sparse_grad,
-            rasterize_mode=rasterize_mode,
-            distributed=self.world_size > 1,
-            camera_model=self.cfg.camera_model,
-            with_ut=self.cfg.with_ut,
-            with_eval3d=self.cfg.with_eval3d,
-            **kwargs,
-        )
+
+        with nvtx.range("rasterization fn"):
+            render_colors, render_alphas, info = rasterization(
+                means=means,
+                quats=quats,
+                scales=scales,
+                opacities=opacities,
+                colors=colors,
+                viewmats=torch.linalg.inv(camtoworlds),  # [C, 4, 4]
+                Ks=Ks,  # [C, 3, 3]
+                width=width,
+                height=height,
+                packed=self.cfg.packed,
+                absgrad=(
+                    self.cfg.strategy.absgrad
+                    if isinstance(self.cfg.strategy, DefaultStrategy)
+                    else False
+                ),
+                sparse_grad=self.cfg.sparse_grad,
+                rasterize_mode=rasterize_mode,
+                distributed=self.world_size > 1,
+                camera_model=self.cfg.camera_model,
+                with_ut=self.cfg.with_ut,
+                with_eval3d=self.cfg.with_eval3d,
+                **kwargs,
+            )
         if masks is not None:
             render_colors[~masks] = 0
         return render_colors, render_alphas, info
@@ -603,9 +606,9 @@ class Runner:
         global_tic = time.time()
         pbar = tqdm.tqdm(range(init_step, max_steps))
         for step in pbar:
-            if step == PROFILE_ITERATION:
-                torch.cuda.cudart().cudaProfilerStart()
-                print(f"\n[INFO] ---- Starting Nsight profiling at iteration {step} ----")
+            # if step == PROFILE_ITERATION:
+            #     torch.cuda.cudart().cudaProfilerStart()
+            #     print(f"\n[INFO] ---- Starting Nsight profiling at iteration {step} ----")
             if not cfg.disable_viewer:
                 while self.viewer.state == "paused":
                     time.sleep(0.01)
@@ -772,7 +775,8 @@ class Runner:
             if step in [i - 1 for i in cfg.save_steps] or step == max_steps - 1:
                 mem = torch.cuda.max_memory_allocated() / 1024**3
                 stats = {
-                    "mem": mem,
+                    # "memory_alloc_pytorch": mem,
+                    "training_mem_reserved": torch.cuda.max_memory_reserved() / 1024**3,
                     "ellipse_time": time.time() - global_tic,
                     "num_GS": len(self.splats["means"]),
                 }
@@ -900,10 +904,10 @@ class Runner:
                 else:
                     assert_never(self.cfg.strategy)
 
-            if step == PROFILE_ITERATION:
-                torch.cuda.cudart().cudaProfilerStop()
-                print(f"\n[INFO]--- Stopiing nsight profiling for iteration {step}")
-                print(f"[INFO] report saved ")
+            # if step == PROFILE_ITERATION_STOP:
+            #     torch.cuda.cudart().cudaProfilerStop()
+            #     print(f"\n[INFO]--- Stopiing nsight profiling for iteration {step}")
+            #     print(f"[INFO] report saved ")
             # eval the full set
             if step in [i - 1 for i in cfg.eval_steps]:
                 self.eval(step)
@@ -949,16 +953,17 @@ class Runner:
 
             torch.cuda.synchronize()
             tic = time.time()
-            colors, _, _ = self.rasterize_splats(
-                camtoworlds=camtoworlds,
-                Ks=Ks,
-                width=width,
-                height=height,
-                sh_degree=cfg.sh_degree,
-                near_plane=cfg.near_plane,
-                far_plane=cfg.far_plane,
-                masks=masks,
-            )  # [1, H, W, 3]
+            with nvtx.range("rasterize_splats"):
+                colors, _, _ = self.rasterize_splats(
+                    camtoworlds=camtoworlds,
+                    Ks=Ks,
+                    width=width,
+                    height=height,
+                    sh_degree=cfg.sh_degree,
+                    near_plane=cfg.near_plane,
+                    far_plane=cfg.far_plane,
+                    masks=masks,
+                )  # [1, H, W, 3]
             torch.cuda.synchronize()
             ellipse_time += max(time.time() - tic, 1e-10)
 
